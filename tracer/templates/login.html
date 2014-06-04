@@ -1,0 +1,26 @@
+###login.html
+{% extends "base.html" %}
+
+{% block title %}
+管理平台
+{% end %}
+
+{% block custom_css %}
+{{ static_url("css/signin.css") }}
+{% end %}
+
+{% block body %}
+<div class="container">
+  <form class="form-signin" role="form" action="{{ request.uri }}" method="post">
+  {% module xsrf_form_html() %}
+  <h2 class="form-signin-heading">管理员登录</h2>
+  <input type="text" value="{{ login_name }}" class="form-control" name="username" placeholder="Username" required autofocus>
+  <input type="password" class="form-control" name="password"  placeholder="Password" required>
+  <label class="checkbox">
+      <input type="checkbox" value="yes" {{ 'checked=checked' if remember != '' else '' }} name="remember"> 记住用户名
+  </label>
+  <button class="btn btn-lg btn-primary btn-block" type="submit">登录</button>
+  <span class="label label-danger">{{ error }}</span>
+</form>
+</div> <!-- /container -->
+{% end %}
