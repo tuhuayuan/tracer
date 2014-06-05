@@ -8,7 +8,7 @@ from tornado.web import url
 from tornado.options import define, options, parse_config_file
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from handlers import Index, Login, Logout, TracerManager, TracerShower
+from handlers import Index, Login, Logout, TracerManager, TracerShower, QRViewer
 
 define("port", default=9000, help="run on the givent port", type=int)
 define("debug", default=False, help="run in debug mode", type=bool)
@@ -28,7 +28,9 @@ class Application(tornado.web.Application):
             (r"/", Index),
             url(r"/login", Login, name='login'),
             url(r"/logout", Logout, name='logout'),
-            url(r"/admin/tracer/(\blist|get|add|remove\b)/(\w+)", TracerManager, name='tracer_manager'),
+            url(r"/admin/tracer/(\blist|get|add|remove|update\b)/(\w+)",
+                TracerManager, name='tracer_manager'),
+            url(r"/admin/qr/(\w+)", QRViewer, name='qr_viewer'),
             url(r"/tracer/([0-9a-zA-Z]{8,})", TracerShower, name='tracer'),
         ]
         settings = dict(
@@ -38,8 +40,8 @@ class Application(tornado.web.Application):
             xsrf_cookies=True,
             cookie_secret="wxb0b2ff9c2e34505d",
             login_url="/login",
-            admin_user = "admin",
-            admin_password = "admin_mt1696",
+            admin_user="admin",
+            admin_password="admin_mt1696",
         )
         tornado.web.Application.__init__(self, handlers, **settings)
         self.engine = create_engine(options.db_connect_string, echo=options.debug)

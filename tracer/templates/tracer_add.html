@@ -32,21 +32,47 @@
 <div class="container">
 
     <div class="row">
-        <div class="col-xs-3 col-sm-3" id="sidebar" role="navigation">
+        <div class="col-xs-2 col-sm-2" id="sidebar" role="navigation">
             <div class="list-group">
-                <a href="{{ reverse_url('tracer_manager', 'list', 0)}}" class="list-group-item">列表</a>
-                <a href="#" class="list-group-item active">添加</a>
+                <a href="{{ reverse_url('tracer_manager', 'list', 0)}}" class="list-group-item active">来源追溯</a>
             </div>
         </div><!--/span-->
-        <div class="col-xs-9 col-sm-9" id="main" role="body">
-            <form role="form">
+        <div class="col-xs-10 col-sm-10" id="main" role="body">
+            <form role="form" method="post" action="{{ reverse_url('tracer_manager', 'add', 0) }}">
+                {% module xsrf_form_html() %}
+                <div class="form-group pull-right">
+                   <button type="submit" class="btn btn-primary">保存</button>
+                   <button type="" class="btn btn-warning">放弃</button>
+                </div>
+                <div class="form-group">
+                    <label>编码</label>
+                    <p class="form-contorl-static">{{ tracer.id }}</p>
+                    <input type="hidden" name="tracer_id" value="{{ tracer.id }}">
+                </div>
+                <div class="form-group">
+                    <label>二维码 </label>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <img src="{{ reverse_url('qr_viewer', tracer.id) }}" alt="" id="qr_image" class="img-thumbnail img-responsive">
+                        </div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>来源描述标题</label>
-                    <input type="text" class="form-control" placeholder="输入简短的标题" name="tracer_title" required autofocus>
+                    <input type="text" class="form-control" value="{{ tracer.title}}" placeholder="输入简短的标题" name="tracer_title" required autofocus>
                 </div>
                 <div class="form-group">
                     <label>来源描述文档</label>
-                    <textarea class="ckeditor" name="tracer_content"></textarea>
+                    <textarea class="ckeditor" name="tracer_content">{{ tracer.content }}</textarea>
+                </div>
+                <label>发布状态</label>
+                <div class="form-group">
+                    <label class="radio-inline">
+                        <input type="radio" value="1" name="tracer_status" {{ 'checked' if tracer.status != 0 else '' }}>已发布
+                    </label>
+                    <label class="radio-inline">
+                        <input type="radio" value="0" name="tracer_status" {{ 'checked' if tracer.status == 0 else '' }}>停用
+                    </label>
                 </div>
             </form>
         </div>

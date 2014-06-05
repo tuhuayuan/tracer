@@ -1,5 +1,7 @@
 # -*- coding: UTF-8 -*-
 import json
+import random
+import string
 from sqlalchemy import Column, Integer, String, Text, TypeDecorator
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -31,7 +33,12 @@ class Tracer(BaseModel):
 
     id = Column(String(255), primary_key=True)
     title = Column(String(255), default='')
-    body = Column(Text(1024), default='')
+    content = Column(Text(1024 * 4), default='')
+    status = Column(Integer, default=0)
     clicked = Column(Integer, default=0)
     posted = Column(Integer, default=0)
     expired = Column(Integer, default=0)
+
+    @classmethod
+    def gen_id(cls, bit):
+        return ''.join(random.sample(string.ascii_letters + string.digits, bit))
