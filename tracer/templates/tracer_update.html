@@ -2,7 +2,7 @@
 {% extends "base.html" %}
 
 {% block title %}
-添加::来源追溯::管理平台
+修改::来源追溯::管理平台
 {% end %}
 
 {% block scripts %}
@@ -38,7 +38,8 @@
             </div>
         </div><!--/span-->
         <div class="col-xs-10 col-sm-10" id="main" role="body">
-            <form role="form" method="post" action="{{ reverse_url('tracer_manager', 'add', 0) }}">
+            <form role="form" method="post" 
+                action="{{ reverse_url('tracer_manager', 'update', tracer.id) }}">
                 {% module xsrf_form_html() %}
                 <div class="form-group pull-right">
                    <button type="submit" class="btn btn-primary">保存</button>
@@ -47,13 +48,12 @@
                 <div class="form-group">
                     <label>编码</label>
                     <p class="form-contorl-static">{{ tracer.id }}</p>
-                    <input type="hidden" name="tracer_id" value="{{ tracer.id }}">
                 </div>
                 <div class="form-group">
                     <label>二维码 </label>
                     <div class="row">
                         <div class="col-md-3">
-                            <img src="{{ reverse_url('qr_viewer', tracer.id) }}" alt="" id="qr_image" class="img-thumbnail img-responsive">
+                            <img src="{{ reverse_url('qr_viewer', tracer.id) }}?static=1" alt="" id="qr_image" class="img-thumbnail img-responsive">
                         </div>
                     </div>
                 </div>

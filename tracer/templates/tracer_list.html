@@ -2,7 +2,17 @@
 {% extends "base.html" %}
 
 {% block title %}
-绿色蔬菜来源追溯平台
+列表::来源追溯::管理平台
+{% end %}
+
+{% block scripts %}
+<script type="text/javascript">
+$('.tracerDelete').click(function(){
+    $('#delModal').modal('show')
+    $('#formDelete').attr('action', $(this).attr('mydata-url'))
+});
+
+</script>
 {% end %}
 
 {% block body %}
@@ -25,8 +35,29 @@
     </div><!-- /.container -->
 </div><!-- /.navbar -->
 
-<div class="container">
+<div class="modal fade" id="delModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h4 class="modal-title">操作确认</h4>
+            </div>
+            <div class="modal-body">
+                <p>警告！删除后无法恢复</p>
+            </div>
+            <div class="modal-footer">
+                <form id="formDelete" method="post" action="">
+                    {% module xsrf_form_html() %}
+                    <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">确定</button>
+                    <input type="hidden" name="page" value="{{ page }}">
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
+<div class="container">
     <div class="row">
         <div class="col-xs-2 col-sm-2" id="sidebar" role="navigation">
             <div class="list-group">
@@ -35,9 +66,77 @@
         </div><!--/span-->
         <div class="col-xs-10 col-sm-10" id="main" role="main">
             <div class="row">
-                <div class="col-xs-2 pull-right">
-                    <a href="{{ reverse_url('tracer_manager', 'add', 0) }}" class="btn btn-primary">添加</a>
-                    <a href="#" class="btn btn-danger">删除</a>
+                <div class="col-xs-12">
+                    <a href="{{ reverse_url('tracer_manager', 'add', 0) }}" class=" pull-right btn btn-primary">添加</a>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-xs-12 col-sm-12 table-responsive">
+                <table class="table table-hover table-condensed">
+                    <thead>
+                        <tr>
+                            <th>编号</th>
+                            <th>标题</th>
+                            <th>发布时间</th>
+                            <th>查询次数</th>
+                            <th>状态</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for t in tracers %}
+                    <tr>
+                        <td>{{ t.id }}</td>
+                        <td>{{ t.title }}</td>
+                        <td>{% import time  %}
+                            {{ time.strftime('%Y-%m-%d', time.localtime(t.posted)) }}</td>
+                        <td>{{ t.clicked }} </td>
+                        <td>{{ '启用' if t.status==1 else '停用' }}</td>
+                        <td>
+                            <a class="btn btn-xs btn-link" href="{{ reverse_url('tracer_manager', 'update', t.id) }}">编辑</a>
+                            <button class="btn btn-xs btn-link tracerDelete" mydata-url="{{ reverse_url('tracer_manager', 'remove', t.id)}}">删除</button>
+                        </td>
+                    </tr>
+                    {% end %}
+                    </tbody>
+                </table >
+                </div>
+            </div>
+            <div class="row">
+                <div class"col-xs-6 col-sm-6">
+                    <ul class="pagination">
+                        {% if page > 0 %}
+                        <li><a href="{{ reverse_url('tracer_manager', 'list', page-1) }}">&laquo;</a></li>
+                        {% else %}
+                        <li><a href="#">&laquo;</a></li>
+                        {% end %}
+                        
+                        {% set show_count = 5 if page_count > 5 else page_count %}
+                        {% set pages = range(-show_count/2 + 1, show_count/2 + 1) %}
+                        {% set pages = [p + page for p in pages] %}
+
+                        {% while pages[0] < 0 %}
+                            {% set pages = [p+1 for p in pages] %}
+                        {% end %}
+
+                        {% while pages[-1] > page_count - 1 %}
+                            {% set pages = [p-1 for p in pages] %}
+                        {% end %}
+
+                        {% for p in pages %}
+                            {% if p == page %}
+                            <li class="active"><span>{{ p+1 }}</span></li>
+                            {% else %}
+                            <li><a href="{{ p }}">{{ p+1 }}</a></li>
+                            {% end %}
+                        {% end %}
+
+                        {% if page_count > page + 1 %}
+                        <li><a href="{{ reverse_url('tracer_manager', 'list', page+1) }}">&raquo;</a></li>
+                        {% else %}
+                        <li><a href="#">&raquo;</a></li>
+                        {% end %}
+                    </ul>
                 </div>
             </div>
         </div>
