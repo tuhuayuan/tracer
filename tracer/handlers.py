@@ -1,6 +1,5 @@
 # -*- coding: UTF-8 -*-
 import time
-import logging
 import tornado.web
 import tornado.gen
 import qrcode
@@ -62,7 +61,7 @@ class Login(BaseHandler):
         password = self.get_argument('password')
         remember = self.get_argument('remember', default='')
         if username == self.settings.get('admin_user') and \
-            password == self.settings.get('admin_password'):
+                password == self.settings.get('admin_password'):
             self.set_secure_cookie("user", username)
             if remember == 'yes':
                 self.set_secure_cookie("login_name", username)
@@ -92,7 +91,6 @@ class TracerManager(BaseHandler):
         else:
             self.send_error(404)
 
-
     @tornado.web.authenticated
     @tornado.gen.coroutine
     def post(self, method, key):
@@ -102,7 +100,6 @@ class TracerManager(BaseHandler):
             yield self.post_remove_tracer(str(key))
         elif method == 'update':
             yield self.post_update_tracer(str(key))
-
 
     def get_add_tracer(self):
         obj = Tracer(
@@ -148,7 +145,7 @@ class TracerManager(BaseHandler):
         if page > page_count - 1 or page < 0:
             page = 0
         self.render("tracer_list.html",
-                tracers = tracers,
+                tracers=tracers,
                 page=page,
                 page_count=page_count)
 
@@ -157,7 +154,6 @@ class TracerManager(BaseHandler):
         if tracer is None:
             raise tornado.web.HTTPError(404)
         self.render("tracer_update.html", tracer=tracer)
-
 
     @tornado.gen.coroutine
     def post_update_tracer(self, tracer_id):
@@ -170,7 +166,6 @@ class TracerManager(BaseHandler):
         self.dbsession.commit()
         self.redirect(self.reverse_url('tracer_manager', 'list', 0))
 
-
     @tornado.gen.coroutine
     def post_remove_tracer(self, tracer_id):
         t = self.dbsession.query(Tracer).get(tracer_id)
@@ -181,10 +176,19 @@ class TracerManager(BaseHandler):
         page = self.get_body_argument("page", default=0)
         self.redirect(self.reverse_url('tracer_manager', 'list', page))
 
+
 class TracerShower(BaseHandler):
+    """扫描二维码的展示页面
+    @preview: 预览模式提供一些分辨率操作，以及可以实时的修改内容
     """
-    """
-    def get(self):
+    def get(self, tracer_id):
+        preview = bool(self.get_query_argument('preview', default=''))
+        tracer = self.dbsession.query(Tracer).get(tracer_id)
+        if tracer is None:
+            raise tornado.web.HTTPError(404)
+        self.render('tracer_show.html', preview=preview, tracer=tracer)
+
+    def post(self, tracer_id):
         pass
 
 
@@ -209,9 +213,9 @@ class QRViewer(BaseHandler):
 
         # 直接返回静态图片
         if bool(static):
-           self.redirect(self.static_url('qr/%s.%s' % (key, QRViewer.__kind__)),
+            self.redirect(self.static_url('qr/%s.%s' % (key, QRViewer.__kind__)),
                    permanent=True)
-           return
+            return
 
         # 固定一个二维码大小和密度以适应打印到包装上
         qr = qrcode.QRCode(
@@ -235,7 +239,7 @@ class QRViewer(BaseHandler):
                 self.write(dict(result='OK'))
             else:
                 f = open(path, 'r')
-                self.write(f.read(64*1024))
+                self.write(f.read(64 * 1024))
         else:
             f = StringIO()
             img.save(f, img.kind)
