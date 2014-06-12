@@ -1,0 +1,107 @@
+###addmin_tracer.html
+{% extends "base.html" %}
+
+{% block title %}
+添加::来源追溯::管理平台
+{% end %}
+
+{% block scripts %}
+<script type="text/javascript">
+
+$(document).ready(function(){
+    var currDev;
+    var rotation = false;
+
+    var defDev = $('.devDefault');
+    if(defDev.length > 0)
+    {
+        currDev = $(defDev[0])
+    }
+    
+    if(currDev != undefined)
+    {
+        loadDev(currDev);
+    }
+
+    $('.devOptions').click(function(){
+        currDev = $(this);
+        loadDev(currDev, rotation)
+    });
+
+    $('#devRotation').click(function(){
+        rotation = !rotation;
+        loadDev(currDev, rotation);
+    });
+});
+
+function loadDev(devOpt, rotation) {
+    info = devOpt.attr('data-devinfo').split(';');
+    r = info[2] / 160;
+    px_w = Math.ceil(info[0] / r);
+    px_h = Math.ceil(info[1] / r);
+    if(rotation)
+    {
+        t = px_h;
+        px_h = px_w;
+        px_w = t;
+    }
+    $('#devContainer').css({'width':String(px_h + 2) + 'px'})
+    $('#devContent').attr('width', String(px_h));
+    $('#devContent').attr('height', String(px_w));
+    $('#devTitle').text(devOpt.text());
+}
+
+</script>
+{% end %}
+
+{% block body %}
+<div id="main" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <div class="navbar-brand">预览</div>
+        </div>
+        <div class="collapse navbar-collapse">
+            <ul class="nav navbar-nav">
+                <li class="dropdown">
+                <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                    移动设备 <span class="caret"></span>
+                </a>
+                <ul class="dropdown-menu">
+                    <li><a href="#" class="devOptions devDefault" data-devinfo="1920;1080;432">三星S5</a></li>
+                    <li><a href="#" class="devOptions" data-devinfo="1920;1080;384">三星Note3</a></li>
+                    <li><a href="#" class="devOptions" data-devinfo="1136;640;326">iPhone5S</a></li>
+                    <li><a href="#" class="devOptions" data-devinfo="960;640;329">iPhone4S</a></li>
+                    <li><a href="#" class="devOptions" data-devinfo="1280;720;342">小米2S</a></li>
+                    <li><a href="#" class="devOptions" data-devinfo="1920;1080;441">小米3</a></li>
+                    <li><a href="#" class="devOptions" data-devinfo="1280;720;312">红米1s</a></li>
+                    <li><a href="#" class="devOptions" data-devinfo="1280;720;267">红米Note</a></li>
+                </ul>
+                </li>
+                <li><a href="#" id="devRotation" data-rotation="0">旋转屏幕</a></li>
+                <li><a href="#">二维码</a></li>
+                <li><a href="#">返回</a></li>
+            </ul>
+        </div><!-- /.nav-collapse -->
+    </div><!-- /.container -->
+</div><!-- /.navbar -->
+<div id="devContainer" class="panel panel-primary center-block" style="width:362px">
+    <div class="panel-heading">
+        <h3 class="panel-title" id="devTitle"></h3>
+    </div>
+    <div class-"panel-body">
+        <iframe id="devContent" style="border:none" width="360" height="640" src="{{ reverse_url('TracerShower', tracer_id)}}">
+        </iframe>
+    </div>
+</div>
+<hr>
+<footer>
+    <p>&copy; Company 2013</p>
+</footer>
+</div><!--/.container-->
+{% end %}

@@ -1,17 +1,21 @@
 # -*- coding: UTF-8 -*-
+from __future__ import absolute_import, division, print_function, with_statement
+
 import time
-import tornado.web
-import tornado.gen
 import qrcode
 import os
 import math
-from models import Tracer
 from StringIO import StringIO
+from tracer.models import Tracer
 from tornado.httpclient import AsyncHTTPClient
+from tornado.options import define, options
+from tornado.web import HTTPError, RequestHandler, authenticated
+from tornado.gen import coroutine
 
 
-class BaseHandler(tornado.web.RequestHandler):
-    """ Handler基类，提供了SqlAlchemy集成
+class BaseHandler(RequestHandler):
+    """ Handler基类，提供了SqlAlchemy集成,
+    基于配置项目的用户验证
     """
     def initialize(self):
         self._dbsession = self.application.dbsession_maker()
@@ -26,52 +30,65 @@ class BaseHandler(tornado.web.RequestHandler):
     def get_current_user(self):
         return self.get_secure_cookie("user")
 
+    def set_current_user(self, value):
+        if not value:
+            self.clear_cookie("user")
+        else:
+            self.set_secure_cookie("user", value, expires_days=None)
+
 
 class Index(BaseHandler):
+    """网站首页
+    """
     def get(self):
         self.render("index.html")
 
 
 class Logout(BaseHandler):
-    """退出登录
+    """登出
     """
     def get(self):
-        self.clear_cookie("user")
-        self.redirect(self.reverse_url('login'))
+        self.set_current_user(None)
+        self.redirect(self.reverse_url("Login"))
+
+
+define("user", default="admin", help="Admin username")
+define("password", default="admin", help="Admin password")
 
 
 class Login(BaseHandler):
-    """登录处理
+    """登录
+    cookies:    @username  保存的登录名
+                @remember  是否保存登录名
     """
     def prepare(self):
-        self._kwargs = dict(error="", remember="", login_name="")
-        remember = self.get_secure_cookie("remember")
-        if remember == 'yes':
-            self._kwargs['login_name'] = self.get_secure_cookie("login_name")
-            self._kwargs['remember'] = remember
+        self._kwargs = dict(error="", remember="", username="")
+        remember = self.get_cookie("remember")
+        if bool(remember):
+            self._kwargs["username"] = self.get_cookie("username")
+            self._kwargs["remember"] = remember
 
     def get(self):
-        if self.get_current_user() is not None:
-            self.redirect(self.reverse_url('tracer_manager', 'list', '0'))
+        if self.current_user:
+            self.redirect(self.reverse_url("TracerManager", "list", 0))
         else:
             self.render("login.html", **self._kwargs)
 
     def post(self):
-        username = self.get_argument('username')
-        password = self.get_argument('password')
-        remember = self.get_argument('remember', default='')
-        if username == self.settings.get('admin_user') and \
-                password == self.settings.get('admin_password'):
-            self.set_secure_cookie("user", username)
-            if remember == 'yes':
-                self.set_secure_cookie("login_name", username)
-                self.set_secure_cookie("remember", remember)
+        username = self.get_argument("username")
+        password = self.get_argument("password")
+        remember = self.get_argument("remember", default="")
+        if username == options.user and password == options.password:
+            self.set_current_user(username)
+            if remember:
+                self.set_cookie("username", username)
+                self.set_cookie("remember", remember)
             else:
-                self.clear_cookie("login_name")
+                self.clear_cookie("username")
                 self.clear_cookie("remember")
-            self.redirect(self.reverse_url('tracer_manager', 'list', '0'))
+            self.redirect(self.reverse_url("TracerManager", "list", 0))
         else:
-            self._kwargs['error'] = "用户名或密码错误"
+            self._kwargs["error"] = "用户名或密码错误"
             self.render("login.html", **self._kwargs)
 
 
@@ -80,47 +97,52 @@ class TracerManager(BaseHandler):
     @method: update|add|list|remove
     @key:
     """
-    @tornado.web.authenticated
+    def _get_tracer_url(self, tracer_id):
+        return "http://" + self.request.host + self.reverse_url("TracerShower", tracer_id)
+
+    @authenticated
     def get(self, method, key):
-        if method == 'add':
+        if method == "add":
             self.get_add_tracer()
-        elif method == 'list':
+        elif method == "list":
             self.get_list_tracer(int(key))
-        elif method == 'update':
+        elif method == "update":
             self.get_update_tracer(str(key))
         else:
-            self.send_error(404)
+            raise HTTPError(404)
 
-    @tornado.web.authenticated
-    @tornado.gen.coroutine
+    @authenticated
+    @coroutine
     def post(self, method, key):
-        if method == 'add':
+        if method == "add":
             yield self.post_add_tracer()
-        elif method == 'remove':
+        elif method == "remove":
             yield self.post_remove_tracer(str(key))
-        elif method == 'update':
+        elif method == "update":
             yield self.post_update_tracer(str(key))
 
     def get_add_tracer(self):
-        obj = Tracer(
+        tracer = Tracer(
             id=Tracer.gen_id(12),
-            title='',
-            content='',
+            title="",
+            content="",
             status=0,
             clicked=0,
             posted=0,
             expired=0,
         )
-        self.render("tracer_add.html", tracer=obj)
+        self.render("tracer_add.html",
+                tracer=tracer,
+                tracer_url=self._get_tracer_url(tracer.id))
 
-    @tornado.gen.coroutine
+    @coroutine
     def post_add_tracer(self):
-        title = self.get_body_argument('tracer_title', default='')
-        content = self.get_body_argument('tracer_content', default='')
-        new_id = self.get_body_argument('tracer_id', default=Tracer.gen_id(12))
-        status = self.get_body_argument('tracer_status', default=0)
-        obj = Tracer(
-            id=new_id,
+        title = self.get_body_argument("tracer_title", default="")
+        content = self.get_body_argument("tracer_content", default="")
+        tracer_id = self.get_body_argument("tracer_id", default=Tracer.gen_id(12))
+        status = self.get_body_argument("tracer_status", default=0)
+        tracer = Tracer(
+            id=tracer_id,
             title=title,
             content=content,
             status=status,
@@ -128,20 +150,23 @@ class TracerManager(BaseHandler):
             posted=int(time.time()),
             expired=0,
         )
-        self.dbsession.merge(obj)
+        self.dbsession.merge(tracer)
         self.dbsession.commit()
         http_client = AsyncHTTPClient()
-        yield http_client.fetch('http://' + self.request.host +
-                self.reverse_url('qr_viewer', new_id) + "?perisist=1&api=" + QRViewer.__api_key__)
-        self.redirect(self.reverse_url('tracer_manager', 'list', 0))
+        yield http_client.fetch("http://" + self.request.host +
+                self.reverse_url("QRViewer") +
+                "?perisist=1&api=" + QRViewer.api_key() +
+                "&key=" + tracer.id +
+                "&value=" + self._get_tracer_url(tracer.id))
+        self.redirect(self.reverse_url("TracerManager", "list", 0))
 
     def get_list_tracer(self, page=0, per=10):
         q = self.dbsession.query(Tracer)
         tracers = q.order_by(Tracer.posted.desc()).offset(page * per).limit(per).all()
         if len(tracers) == 0 and page != 0:
-            self.redirect(self.reverse_url('tracer_manager', 'list', 0))
-        counter = self.dbsession.query(Tracer.id)
-        page_count = int(math.ceil(float(counter.count()) / per))
+            self.redirect(self.reverse_url("TracerManager", "list", 0))
+        c = self.dbsession.query(Tracer.id)
+        page_count = int(math.ceil(float(c.count()) / per))
         if page > page_count - 1 or page < 0:
             page = 0
         self.render("tracer_list.html",
@@ -151,30 +176,32 @@ class TracerManager(BaseHandler):
 
     def get_update_tracer(self, tracer_id):
         tracer = self.dbsession.query(Tracer).get(tracer_id)
-        if tracer is None:
-            raise tornado.web.HTTPError(404)
-        self.render("tracer_update.html", tracer=tracer)
+        if not tracer:
+            raise HTTPError(404)
+        qr_url = self.static_url(QRViewer.perisist_path() +
+                "/" + tracer.id + "." + QRViewer.qr_kind())
+        self.render("tracer_update.html", tracer=tracer, qr_url=qr_url)
 
-    @tornado.gen.coroutine
+    @coroutine
     def post_update_tracer(self, tracer_id):
         tracer = self.dbsession.query(Tracer).get(tracer_id)
-        if tracer is None:
-            raise tornado.web.HTTPError(404)
-        tracer.title = self.get_body_argument('tracer_title', default='')
-        tracer.content = self.get_body_argument('tracer_content', default='')
-        tracer.status = self.get_body_argument('tracer_status', default=0)
+        if not tracer:
+            raise HTTPError(404)
+        tracer.title = self.get_body_argument("tracer_title", default="")
+        tracer.content = self.get_body_argument("tracer_content", default="")
+        tracer.status = self.get_body_argument("tracer_status", default=0)
         self.dbsession.commit()
-        self.redirect(self.reverse_url('tracer_manager', 'list', 0))
+        self.redirect(self.reverse_url("TracerManager", "list", 0))
 
-    @tornado.gen.coroutine
+    @coroutine
     def post_remove_tracer(self, tracer_id):
-        t = self.dbsession.query(Tracer).get(tracer_id)
-        if t is None:
-            raise tornado.web.HTTPError(404)
-        self.dbsession.delete(t)
+        tracer = self.dbsession.query(Tracer).get(tracer_id)
+        if not tracer:
+            raise HTTPError(404)
+        self.dbsession.delete(tracer)
         self.dbsession.commit()
         page = self.get_body_argument("page", default=0)
-        self.redirect(self.reverse_url('tracer_manager', 'list', page))
+        self.redirect(self.reverse_url("TracerManager", "list", page))
 
 
 class TracerShower(BaseHandler):
@@ -182,14 +209,29 @@ class TracerShower(BaseHandler):
     @preview: 预览模式提供一些分辨率操作，以及可以实时的修改内容
     """
     def get(self, tracer_id):
-        preview = bool(self.get_query_argument('preview', default=''))
+        preview = self.get_query_argument("preview", default="")
         tracer = self.dbsession.query(Tracer).get(tracer_id)
-        if tracer is None:
-            raise tornado.web.HTTPError(404)
-        self.render('tracer_show.html', preview=preview, tracer=tracer)
+        if not tracer:
+            raise HTTPError(404)
+        if preview:
+            back_url = self.get_query_argument("next",
+                    default=self.reverse_url("TracerManager", "list", 0))
+            self.render("tracer_preview.html", tracer_id=tracer.id, back_url=back_url)
+        else:
+            self.render("tracer_show.html", tracer=tracer)
 
+    @coroutine
     def post(self, tracer_id):
-        pass
+        tracer = self.dbsession.query(Tracer).get(tracer_id)
+        if not tracer:
+            raise HTTPError(404)
+        tracer.content = self.get_body_argument("tracer_content", default="")
+        self.dbsession.commit()
+        self.redirect(self.reverse_url("TracerShower", tracer_id) + "?preview=1")
+
+
+define("qrviewer_api_key", default="secret_key", help="")
+define("qrviewer_perisist_path", default="qr", help="")
 
 
 class QRViewer(BaseHandler):
@@ -198,47 +240,52 @@ class QRViewer(BaseHandler):
     @perisist: 保存图片
     @static: 直接返回静态图片，不存在则返回404
     """
-    __api_key__ = "43vxl8jazpNJ"
-    __qr_static__ = "qr"
-    __kind__ = 'png'
+    @classmethod
+    def qr_kind(cls):
+        return "png"
 
-    def get(self, key):
-        perisist = bool(self.get_query_argument("perisist", default=''))
-        api = self.get_query_argument("api", default='')
-        static = self.get_query_argument("static", default='')
-        url = 'http://' + self.request.host + self.reverse_url('tracer', key)
-        path = os.path.join(self.settings["static_path"], QRViewer.__qr_static__)
+    @classmethod
+    def api_key(cls):
+        return options.qrviewer_api_key
+
+    @classmethod
+    def perisist_path(cls):
+        return options.qrviewer_perisist_path
+
+    def get(self):
+        perisist = self.get_query_argument("perisist", default="")
+        api = self.get_query_argument("api", default="")
+        key = self.get_query_argument("key", default="")
+        value = self.get_query_argument("value", default="")
+        path = os.path.join(self.settings["static_path"], QRViewer.perisist_path())
         if not os.path.exists(path):
             os.makedirs(path)
 
-        # 直接返回静态图片
-        if bool(static):
-            self.redirect(self.static_url('qr/%s.%s' % (key, QRViewer.__kind__)),
-                   permanent=True)
-            return
-
-        # 固定一个二维码大小和密度以适应打印到包装上
         qr = qrcode.QRCode(
             version=3,
             error_correction=qrcode.constants.ERROR_CORRECT_Q,
             box_size=3,
             border=2
         )
-        qr.add_data(url)
+        qr.add_data(value)
         qr.make(fit=True)
         img = qr.make_image()
 
         # 如果是持久化则首先检查文件是否存在
         self.set_header("Content-Type", "image/%s" % img.kind)
-        if bool(perisist) and \
-                (self.get_current_user() is not None or api == QRViewer.__api_key__):
-            path = os.path.join(path, '%s.%s' % (key, QRViewer.__kind__))
+        if perisist and (self.current_user or api == QRViewer.api_key()):
+            if not key:
+                key = str(int(time.time()))
+            path = os.path.join(path, "%s.%s" % (key, QRViewer.qr_kind()))
             if not os.path.exists(path):
-                img.save(path, QRViewer.__kind__)
-            if bool(api):
-                self.write(dict(result='OK'))
+                img.save(path, QRViewer.qr_kind())
+            if api:
+                self.write(dict(result="OK",
+                    key=key,
+                    kind=QRViewer.qr_kind(),
+                    path=QRViewer.perisist_path()))
             else:
-                f = open(path, 'r')
+                f = open(path, "r")
                 self.write(f.read(64 * 1024))
         else:
             f = StringIO()
