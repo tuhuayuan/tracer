@@ -32,6 +32,7 @@ $(document).ready(function(){
         rotation = !rotation;
         loadDev(currDev, rotation);
     });
+
 });
 
 function loadDev(devOpt, rotation) {
@@ -45,7 +46,7 @@ function loadDev(devOpt, rotation) {
         px_h = px_w;
         px_w = t;
     }
-    $('#devContainer').css({'width':String(px_h + 2) + 'px'})
+    $('#devContainer').css({'width':String(px_h+2) + 'px'})
     $('#devContent').attr('width', String(px_h));
     $('#devContent').attr('height', String(px_w));
     $('#devTitle').text(devOpt.text());
@@ -69,23 +70,36 @@ function loadDev(devOpt, rotation) {
         <div class="collapse navbar-collapse">
             <ul class="nav navbar-nav">
                 <li class="dropdown">
-                <a class="dropdown-toggle" data-toggle="dropdown" href="#">
-                    移动设备 <span class="caret"></span>
-                </a>
-                <ul class="dropdown-menu">
-                    <li><a href="#" class="devOptions devDefault" data-devinfo="1920;1080;432">三星S5</a></li>
-                    <li><a href="#" class="devOptions" data-devinfo="1920;1080;384">三星Note3</a></li>
-                    <li><a href="#" class="devOptions" data-devinfo="1136;640;326">iPhone5S</a></li>
-                    <li><a href="#" class="devOptions" data-devinfo="960;640;329">iPhone4S</a></li>
-                    <li><a href="#" class="devOptions" data-devinfo="1280;720;342">小米2S</a></li>
-                    <li><a href="#" class="devOptions" data-devinfo="1920;1080;441">小米3</a></li>
-                    <li><a href="#" class="devOptions" data-devinfo="1280;720;312">红米1s</a></li>
-                    <li><a href="#" class="devOptions" data-devinfo="1280;720;267">红米Note</a></li>
-                </ul>
+                    <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                        移动设备 <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a href="#" class="devOptions" data-devinfo="1920;1080;432">三星S5</a></li>
+                        <li><a href="#" class="devOptions" data-devinfo="1920;1080;384">三星Note3</a></li>
+                        <li><a href="#" class="devOptions devDefault" data-devinfo="1136;640;326">iPhone5S</a></li>
+                        <li><a href="#" class="devOptions" data-devinfo="960;640;329">iPhone4S</a></li>
+                        <li><a href="#" class="devOptions" data-devinfo="1280;720;342">小米2S</a></li>
+                        <li><a href="#" class="devOptions" data-devinfo="1920;1080;441">小米3</a></li>
+                        <li><a href="#" class="devOptions" data-devinfo="1280;720;312">红米1s</a></li>
+                        <li><a href="#" class="devOptions" data-devinfo="1280;720;267">红米Note</a></li>
+                    </ul>
                 </li>
                 <li><a href="#" id="devRotation" data-rotation="0">旋转屏幕</a></li>
-                <li><a href="#">二维码</a></li>
-                <li><a href="#">返回</a></li>
+                <li class="dropdown">
+                    <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                        二维码 <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">
+                        <li role="presentation">
+                        <a role="menuitem" href="{{ qr_url }}" download="二维码{{ tracer_id }}">
+                            <img src="{{ qr_url }}" alt="" id="qr_image" class="img-responsive">
+                            点击图片下载
+                        </a>
+                        </li>
+                    </ul>
+                </li>
+                <li><a href="{{ reverse_url('TracerManager', 'update', tracer_id) }}?next={{ request.uri }}">编辑</a></li>
+                <li><a href="{{ back_url }}">返回</a></li>
             </ul>
         </div><!-- /.nav-collapse -->
     </div><!-- /.container -->
@@ -94,14 +108,15 @@ function loadDev(devOpt, rotation) {
     <div class="panel-heading">
         <h3 class="panel-title" id="devTitle"></h3>
     </div>
-    <div class-"panel-body">
+    <div class="panel-body" style="padding:0">
         <iframe id="devContent" style="border:none" width="360" height="640" src="{{ reverse_url('TracerShower', tracer_id)}}">
         </iframe>
     </div>
 </div>
+<div class="container">
 <hr>
 <footer>
     <p>&copy; Company 2013</p>
 </footer>
-</div><!--/.container-->
+</div>
 {% end %}

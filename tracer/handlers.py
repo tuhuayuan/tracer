@@ -214,9 +214,14 @@ class TracerShower(BaseHandler):
         if not tracer:
             raise HTTPError(404)
         if preview:
+            qr_url = self.static_url(QRViewer.perisist_path() +
+                    "/" + tracer.id + "." + QRViewer.qr_kind())
             back_url = self.get_query_argument("next",
                     default=self.reverse_url("TracerManager", "list", 0))
-            self.render("tracer_preview.html", tracer_id=tracer.id, back_url=back_url)
+            self.render("tracer_preview.html",
+                    tracer_id=tracer.id,
+                    back_url=back_url,
+                    qr_url=qr_url)
         else:
             self.render("tracer_show.html", tracer=tracer)
 

@@ -47,13 +47,18 @@
                 </div>
                 <div class="form-group">
                     <label>编码</label>
-                    <p class="form-contorl-static">{{ tracer.id }}</p>
+                    <p class="form-contorl-static">
+                    {{ tracer.id }}
+                    <a class="" href="{{ reverse_url('TracerShower', tracer.id) }}?preview=1&next={{ request.path }}">预览</a>
+                    </p>
                 </div>
                 <div class="form-group">
                     <label>二维码 </label>
                     <div class="row">
                         <div class="col-md-3">
-                            <img src="{{ qr_url }}" alt="" id="qr_image" class="img-thumbnail img-responsive">
+                            <a role="menuitem" href="{{ qr_url }}" download="二维码{{ tracer.id }}">
+                                <img src="{{ qr_url }}" alt="" id="qr_image" class="img-thumbnail img-responsive">
+                            </a>
                         </div>
                     </div>
                 </div>

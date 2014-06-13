@@ -93,7 +93,7 @@ $('.tracerDelete').click(function(){
                         <td>{{ t.clicked }} </td>
                         <td>{{ '启用' if t.status==1 else '停用' }}</td>
                         <td>
-                            <a class="btn btn-xs btn-link" href="{{ reverse_url('TracerShower', t.id) }}?preview=1">预览</a>
+                            <a class="btn btn-xs btn-link" href="{{ reverse_url('TracerShower', t.id) }}?preview=1&next={{ request.path }}">预览</a>
                             <a class="btn btn-xs btn-link" href="{{ reverse_url('TracerManager', 'update', t.id) }}">编辑</a>
                             <button class="btn btn-xs btn-link tracerDelete" mydata-url="{{ reverse_url('TracerManager', 'remove', t.id)}}">删除</button>
                         </td>

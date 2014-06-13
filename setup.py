@@ -1,18 +1,16 @@
 from setuptools import setup
 
-version = '0.1.0'
-
 setup(
-    name='chatmind',
-    version=version,
+    name='tracer',
+    version='1.0.0',
     description="web app build on tornado",
-    keywords='tornado wechat yinxin',
+    keywords='tornado web',
     author='tuhuayuan',
     author_email='tuhuayuan@gmail.com',
-    url='http://chatmind.webrfs.im',
+    url='',
     license='MIT',
-    packages=['chatmind'],
-    scripts=[],
+    packages=['tracer'],
+    scripts=['tracer/script/tracer-admin.py'],
     install_requires=[
         "tornado",
         "sqlalchemy",
