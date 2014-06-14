@@ -38,6 +38,8 @@ class Tracer(BaseModel):
     clicked = Column(Integer, default=0)
     posted = Column(Integer, default=0)
     expired = Column(Integer, default=0)
+    qr = Column(String(255), default='')
+    url = Column(String(255), default='')
 
     @classmethod
     def gen_id(cls, bit):

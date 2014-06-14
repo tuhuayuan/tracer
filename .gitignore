@@ -1,6 +1,7 @@
 # Config file
 *.conf
 tracer/static/qr
+tracer/static/tracers
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -5,7 +5,7 @@ from tornado.web import url
 from tornado.options import define, options
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from tracer.handlers import Index, Login, Logout, TracerManager, TracerShower, QRViewer
+from tracer.handlers import Login, Logout, TracerManager, TracerShower, QRViewer
 from tracer.models import BaseModel
 
 define("debug", default=False, help="Run in debug mode", type=bool)
@@ -16,7 +16,6 @@ define("db_rebuild", default=False, help="Drop all database tables", type=bool)
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
-            (r"/", Index),
             url(r"/login", Login, name="Login"),
             url(r"/logout", Logout, name="Logout"),
             url(r"/admin/tracer/(\blist|get|add|remove|update\b)/(\w+)",

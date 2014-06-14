@@ -10,7 +10,7 @@ setup(
     url='',
     license='MIT',
     packages=['tracer'],
-    scripts=['tracer/script/tracer-admin.py'],
+    scripts=['tracer/scripts/tracer-admin.py'],
     install_requires=[
         "tornado",
         "sqlalchemy",

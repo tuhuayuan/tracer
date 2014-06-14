@@ -11,6 +11,7 @@ from tornado.httpclient import AsyncHTTPClient
 from tornado.options import define, options
 from tornado.web import HTTPError, RequestHandler, authenticated
 from tornado.gen import coroutine
+from tornado.escape import url_escape
 
 
 class BaseHandler(RequestHandler):
@@ -35,13 +36,6 @@ class BaseHandler(RequestHandler):
             self.clear_cookie("user")
         else:
             self.set_secure_cookie("user", value, expires_days=None)
-
-
-class Index(BaseHandler):
-    """网站首页
-    """
-    def get(self):
-        self.render("index.html")
 
 
 class Logout(BaseHandler):
@@ -92,13 +86,24 @@ class Login(BaseHandler):
             self.render("login.html", **self._kwargs)
 
 
+define("tracer_url", default="", help="")
+
+
 class TracerManager(BaseHandler):
     """tracer管理
     @method: update|add|list|remove
     @key:
     """
-    def _get_tracer_url(self, tracer_id):
-        return "http://" + self.request.host + self.reverse_url("TracerShower", tracer_id)
+    def _gen_tracer_page(self, tracer):
+        """生成tracer的静态html页面
+        """
+        path = os.path.join(self.settings["static_path"], "tracers")
+        if not os.path.exists(path):
+            os.makedirs(path)
+        page = os.path.join(path, "%s.%s" % (tracer.id, "html"))
+        f = open(page, "w")
+        f.write(self.render_string("tracer_show.html", tracer=tracer))
+
 
     @authenticated
     def get(self, method, key):
@@ -122,18 +127,18 @@ class TracerManager(BaseHandler):
             yield self.post_update_tracer(str(key))
 
     def get_add_tracer(self):
+        """响应新增页面
+        """
         tracer = Tracer(
             id=Tracer.gen_id(12),
             title="",
             content="",
             status=0,
-            clicked=0,
-            posted=0,
-            expired=0,
         )
-        self.render("tracer_add.html",
-                tracer=tracer,
-                tracer_url=self._get_tracer_url(tracer.id))
+        url = options.tracer_url
+        if not url:
+            url = self.request.protocol + "://" + self.request.host + self.static_url("tracers")
+        self.render("tracer_add.html", tracer=tracer, url=url)
 
     @coroutine
     def post_add_tracer(self):
@@ -141,6 +146,8 @@ class TracerManager(BaseHandler):
         content = self.get_body_argument("tracer_content", default="")
         tracer_id = self.get_body_argument("tracer_id", default=Tracer.gen_id(12))
         status = self.get_body_argument("tracer_status", default=0)
+        url = self.get_body_argument("tracer_url", default="")
+
         tracer = Tracer(
             id=tracer_id,
             title=title,
@@ -149,30 +156,39 @@ class TracerManager(BaseHandler):
             clicked=0,
             posted=int(time.time()),
             expired=0,
+            qr=self.static_url(QRViewer.perisist_path() + "/%s.%s" % (tracer_id, QRViewer.qr_kind())),
+            url=url + "/%s.html" % (tracer_id)
         )
         self.dbsession.merge(tracer)
         self.dbsession.commit()
+
+        # 生成Tracer静态页面
+        self._gen_tracer_page(tracer)
+
+        # QRView API创建静态二维码
         http_client = AsyncHTTPClient()
         yield http_client.fetch("http://" + self.request.host +
                 self.reverse_url("QRViewer") +
                 "?perisist=1&api=" + QRViewer.api_key() +
                 "&key=" + tracer.id +
-                "&value=" + self._get_tracer_url(tracer.id))
-        self.redirect(self.reverse_url("TracerManager", "list", 0))
+                "&value=" + tracer.url)
+
+        self.redirect(self.reverse_url("TracerShower", tracer.id) +
+                "?next=" + url_escape(self.reverse_url("TracerManager", "list", 0)))
 
     def get_list_tracer(self, page=0, per=10):
+        """tracer管理主列表页面
+        """
         q = self.dbsession.query(Tracer)
         tracers = q.order_by(Tracer.posted.desc()).offset(page * per).limit(per).all()
         if len(tracers) == 0 and page != 0:
             self.redirect(self.reverse_url("TracerManager", "list", 0))
         c = self.dbsession.query(Tracer.id)
         page_count = int(math.ceil(float(c.count()) / per))
-        if page > page_count - 1 or page < 0:
-            page = 0
         self.render("tracer_list.html",
                 tracers=tracers,
-                page=page,
-                page_count=page_count)
+                page=page if page >= 0 and page < page_count else 0,
+                page_count=page_count if page_count > 0 else 1)
 
     def get_update_tracer(self, tracer_id):
         tracer = self.dbsession.query(Tracer).get(tracer_id)
@@ -180,6 +196,7 @@ class TracerManager(BaseHandler):
             raise HTTPError(404)
         qr_url = self.static_url(QRViewer.perisist_path() +
                 "/" + tracer.id + "." + QRViewer.qr_kind())
+        self._gen_tracer_static(tracer)
         self.render("tracer_update.html", tracer=tracer, qr_url=qr_url)
 
     @coroutine
@@ -205,34 +222,20 @@ class TracerManager(BaseHandler):
 
 
 class TracerShower(BaseHandler):
-    """扫描二维码的展示页面
-    @preview: 预览模式提供一些分辨率操作，以及可以实时的修改内容
+    """扫描二维码的预览页面
     """
     def get(self, tracer_id):
-        preview = self.get_query_argument("preview", default="")
         tracer = self.dbsession.query(Tracer).get(tracer_id)
         if not tracer:
             raise HTTPError(404)
-        if preview:
-            qr_url = self.static_url(QRViewer.perisist_path() +
-                    "/" + tracer.id + "." + QRViewer.qr_kind())
-            back_url = self.get_query_argument("next",
-                    default=self.reverse_url("TracerManager", "list", 0))
-            self.render("tracer_preview.html",
-                    tracer_id=tracer.id,
-                    back_url=back_url,
-                    qr_url=qr_url)
-        else:
-            self.render("tracer_show.html", tracer=tracer)
 
-    @coroutine
-    def post(self, tracer_id):
-        tracer = self.dbsession.query(Tracer).get(tracer_id)
-        if not tracer:
-            raise HTTPError(404)
-        tracer.content = self.get_body_argument("tracer_content", default="")
-        self.dbsession.commit()
-        self.redirect(self.reverse_url("TracerShower", tracer_id) + "?preview=1")
+        next_url = self.get_query_argument("next",
+                default=self.reverse_url("TracerManager", "list", 0))
+        self.render("tracer_preview.html",
+                tracer_id=tracer.id,
+                next_url=next_url,
+                qr_url=tracer.qr,
+                tracer_url=tracer.url)
 
 
 define("qrviewer_api_key", default="secret_key", help="")

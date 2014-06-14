@@ -38,32 +38,22 @@
             </div>
         </div><!--/span-->
         <div class="col-xs-10 col-sm-10" id="main" role="body">
-            <form role="form" method="post" action="{{ reverse_url('TracerManager', 'add', 0) }}">
+            <form class=".form-horizontal" method="post" action="{{ reverse_url('TracerManager', 'add', 0) }}">
                 {% module xsrf_form_html() %}
-                <div class="form-group pull-right">
-                   <button type="submit" class="btn btn-primary">保存</button>
-                   <a href="{{ reverse_url('TracerManager', 'list', 0) }}" class="btn btn-default">放弃</a>
-                </div>
                 <div class="form-group">
-                    <label>编码</label>
-                    <p class="form-contorl-static">{{ tracer.id }}</p>
-                    <input type="hidden" name="tracer_id" value="{{ tracer.id }}">
-                </div>
-                <div class="form-group">
-                    <label>二维码 </label>
-                    <div class="row">
-                        <div class="col-md-3">
-                            <img src="{{ reverse_url('QRViewer')}}?value={{ tracer_url }}" alt="" id="qr_image" class="img-thumbnail img-responsive">
-                        </div>
+                    <label>静态页面地址(对应二维码扫描的地址，一般不需要修改)</label>
+                    <div class="input-group col-xs-6">
+                        <input type="text" class="form-control" name="tracer_url" value="{{ url }}" required>
+                        <span class="input-group-addon">/{{ tracer.id }}.html</span>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>来源描述标题</label>
+                    <label>来源描述标题(仅作为后台管理方便识别)</label>
                     <input type="text" class="form-control" value="{{ tracer.title}}" placeholder="输入简短的标题" name="tracer_title" required autofocus>
                 </div>
                 <div class="form-group">
                     <label>来源描述文档</label>
-                    <textarea class="ckeditor" name="tracer_content">{{ tracer.content }}</textarea>
+                    <textarea class="ckeditor form-control" name="tracer_content">{{ tracer.content }}</textarea>
                 </div>
                 <label>发布状态</label>
                 <div class="form-group">
@@ -73,6 +63,11 @@
                     <label class="radio-inline">
                         <input type="radio" value="0" name="tracer_status" {{ 'checked' if tracer.status == 0 else '' }}>停用
                     </label>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <a href="{{ reverse_url('TracerManager', 'list', 0) }}" class="btn btn-default">放弃</a>
+                    <input type="hidden" name="tracer_id" value="{{ tracer.id }}">
                 </div>
             </form>
         </div>
