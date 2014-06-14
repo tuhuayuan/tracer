@@ -192,12 +192,11 @@ class TracerManager(BaseHandler):
 
     def get_update_tracer(self, tracer_id):
         tracer = self.dbsession.query(Tracer).get(tracer_id)
+        next_url = self.get_query_argument("next",
+                default=self.reverse_url("TracerManager", "list", 0))
         if not tracer:
             raise HTTPError(404)
-        qr_url = self.static_url(QRViewer.perisist_path() +
-                "/" + tracer.id + "." + QRViewer.qr_kind())
-        self._gen_tracer_static(tracer)
-        self.render("tracer_update.html", tracer=tracer, qr_url=qr_url)
+        self.render("tracer_update.html", tracer=tracer, next_url=next_url)
 
     @coroutine
     def post_update_tracer(self, tracer_id):
@@ -208,7 +207,9 @@ class TracerManager(BaseHandler):
         tracer.content = self.get_body_argument("tracer_content", default="")
         tracer.status = self.get_body_argument("tracer_status", default=0)
         self.dbsession.commit()
-        self.redirect(self.reverse_url("TracerManager", "list", 0))
+        next_url = self.get_query_argument("next",
+                default=self.reverse_url("TracerManager", "list", 0))
+        self.redirect(next_url)
 
     @coroutine
     def post_remove_tracer(self, tracer_id):

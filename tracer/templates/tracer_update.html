@@ -39,12 +39,8 @@
         </div><!--/span-->
         <div class="col-xs-10 col-sm-10" id="main" role="body">
             <form role="form" method="post" 
-                action="{{ reverse_url('TracerManager', 'update', tracer.id) }}">
+                action="{{ request.uri }}">
                 {% module xsrf_form_html() %}
-                <div class="form-group pull-right">
-                    <button type="submit" class="btn btn-primary">保存</button>
-                    <a href="{{ reverse_url('TracerManager', 'list', 0) }}" class="btn btn-default">放弃</a>
-                </div>
                 <div class="form-group">
                     <label>编码</label>
                     <p class="form-contorl-static">
@@ -56,9 +52,10 @@
                     <label>二维码 </label>
                     <div class="row">
                         <div class="col-md-3">
-                            <a role="menuitem" href="{{ qr_url }}" download="二维码{{ tracer.id }}">
-                                <img src="{{ qr_url }}" alt="" id="qr_image" class="img-thumbnail img-responsive">
+                            <a role="menuitem" href="{{ tracer.qr }}" download="二维码{{ tracer.id }}">
+                                <img src="{{ tracer.qr }}" alt="" id="qr_image" class="img-thumbnail img-responsive">
                             </a>
+                            <a href="{{ tracer.url }}">{{ tracer.url}}</a>
                         </div>
                     </div>
                 </div>
@@ -78,6 +75,10 @@
                     <label class="radio-inline">
                         <input type="radio" value="0" name="tracer_status" {{ 'checked' if tracer.status == 0 else '' }}>停用
                     </label>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <a href="{{ next_url }}" class="btn btn-default">放弃</a>
                 </div>
             </form>
         </div>

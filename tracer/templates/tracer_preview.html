@@ -98,7 +98,7 @@ function loadDev(devOpt, rotation) {
                         </li>
                     </ul>
                 </li>
-                <li><a href="{{ reverse_url('TracerManager', 'update', tracer_id) }}?next={{ request.uri }}">编辑</a></li>
+                <li><a href="{{ reverse_url('TracerManager', 'update', tracer_id) }}?next={{ url_escape(request.uri) }}">编辑</a></li>
                 <li><a href="{{ next_url }}">返回</a></li>
             </ul>
         </div><!-- /.nav-collapse -->
