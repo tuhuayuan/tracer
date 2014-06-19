@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 from __future__ import absolute_import, division, print_function, with_statement
 
+import re
 import time
 import qrcode
 import os
@@ -12,6 +13,12 @@ from tornado.options import define, options
 from tornado.web import HTTPError, RequestHandler, authenticated
 from tornado.gen import coroutine
 from tornado.escape import url_escape
+
+define("user", default="admin", help="Admin username")
+define("password", default="admin", help="Admin password")
+define("qr_token", default="secret_key", help="")
+define("qr_static_path", default="static/qr", help="")
+define("tracer_url", default="", help="")
 
 
 class BaseHandler(RequestHandler):
@@ -44,10 +51,6 @@ class Logout(BaseHandler):
     def get(self):
         self.set_current_user(None)
         self.redirect(self.reverse_url("Login"))
-
-
-define("user", default="admin", help="Admin username")
-define("password", default="admin", help="Admin password")
 
 
 class Login(BaseHandler):
@@ -86,9 +89,6 @@ class Login(BaseHandler):
             self.render("login.html", **self._kwargs)
 
 
-define("tracer_url", default="", help="")
-
-
 class TracerManager(BaseHandler):
     """tracer管理
     @method: update|add|list|remove
@@ -103,7 +103,6 @@ class TracerManager(BaseHandler):
         page = os.path.join(path, "%s.%s" % (tracer.id, "html"))
         f = open(page, "w")
         f.write(self.render_string("tracer_show.html", tracer=tracer))
-
 
     @authenticated
     def get(self, method, key):
@@ -133,7 +132,6 @@ class TracerManager(BaseHandler):
             id=Tracer.gen_id(12),
             title="",
             content="",
-            status=0,
         )
         url = options.tracer_url
         if not url:
@@ -145,18 +143,15 @@ class TracerManager(BaseHandler):
         title = self.get_body_argument("tracer_title", default="")
         content = self.get_body_argument("tracer_content", default="")
         tracer_id = self.get_body_argument("tracer_id", default=Tracer.gen_id(12))
-        status = self.get_body_argument("tracer_status", default=0)
         url = self.get_body_argument("tracer_url", default="")
 
         tracer = Tracer(
             id=tracer_id,
             title=title,
             content=content,
-            status=status,
             clicked=0,
             posted=int(time.time()),
-            expired=0,
-            qr=self.static_url(QRViewer.perisist_path() + "/%s.%s" % (tracer_id, QRViewer.qr_kind())),
+            qr=self.static_url(QRViewer.static_path(tracer_id)),
             url=url + "/%s.html" % (tracer_id)
         )
         self.dbsession.merge(tracer)
@@ -205,7 +200,6 @@ class TracerManager(BaseHandler):
             raise HTTPError(404)
         tracer.title = self.get_body_argument("tracer_title", default="")
         tracer.content = self.get_body_argument("tracer_content", default="")
-        tracer.status = self.get_body_argument("tracer_status", default=0)
         self.dbsession.commit()
         next_url = self.get_query_argument("next",
                 default=self.reverse_url("TracerManager", "list", 0))
@@ -239,64 +233,57 @@ class TracerShower(BaseHandler):
                 tracer_url=tracer.url)
 
 
-define("qrviewer_api_key", default="secret_key", help="")
-define("qrviewer_perisist_path", default="qr", help="")
-
-
 class QRViewer(BaseHandler):
     """生成指定键值的二维码图片
     @api: 直接生成图片，返回json结果
     @perisist: 保存图片
     @static: 直接返回静态图片，不存在则返回404
     """
-    @classmethod
-    def qr_kind(cls):
-        return "png"
 
-    @classmethod
-    def api_key(cls):
-        return options.qrviewer_api_key
-
-    @classmethod
-    def perisist_path(cls):
-        return options.qrviewer_perisist_path
-
-    def get(self):
-        perisist = self.get_query_argument("perisist", default="")
-        api = self.get_query_argument("api", default="")
-        key = self.get_query_argument("key", default="")
-        value = self.get_query_argument("value", default="")
-        path = os.path.join(self.settings["static_path"], QRViewer.perisist_path())
-        if not os.path.exists(path):
-            os.makedirs(path)
-
+    def _make_qrimage(self, value):
+        """指定参数生成一张包含value的二维码
+        """
         qr = qrcode.QRCode(
             version=3,
             error_correction=qrcode.constants.ERROR_CORRECT_Q,
             box_size=3,
-            border=2
+            border=2,
         )
         qr.add_data(value)
         qr.make(fit=True)
-        img = qr.make_image()
+        return qr.make_image()
 
-        # 如果是持久化则首先检查文件是否存在
+    def get(self):
+        """ 返回一张包含value参数的二维码
+        """
+        value = self.get_query_argument("value", default="")
+        if not value:
+            raise HTTPError(404)
+        img = self._make_qrimage(value)
+        f = StringIO()
+        img.save(f)
         self.set_header("Content-Type", "image/%s" % img.kind)
-        if perisist and (self.current_user or api == QRViewer.api_key()):
-            if not key:
-                key = str(int(time.time()))
-            path = os.path.join(path, "%s.%s" % (key, QRViewer.qr_kind()))
-            if not os.path.exists(path):
-                img.save(path, QRViewer.qr_kind())
-            if api:
-                self.write(dict(result="OK",
-                    key=key,
-                    kind=QRViewer.qr_kind(),
-                    path=QRViewer.perisist_path()))
-            else:
-                f = open(path, "r")
-                self.write(f.read(64 * 1024))
-        else:
-            f = StringIO()
-            img.save(f, img.kind)
-            self.write(f.getvalue())
+        self.write(f.getvalue())
+
+    def post(self):
+        """ 创建包含value参数文件名为key二维码图片
+        返回图片的url地址
+        """
+        token = self.get_query_argument("token", default="")
+        key = self.get_body_argument("key", default="")
+        value = self.body_argument("value", default="")
+        if token != options.qr_token:
+            raise HTTPError(403)
+        if not value or not re.match(r"^[\w\d_]+$", key):
+            raise HTTPError(404)
+        img = self._make_qrimage(value)
+        path = os.path.join(self.settings["static_path"], options.qr_static_path)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        path = os.path.join(path, key + "." + img.kind)
+        img.save(path)
+        self.write(dict(
+            url=self.request.protocol + "://" + self.request.host + self.static_url(path),
+            value=value,
+            expired=0,
+        ))

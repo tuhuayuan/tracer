@@ -79,7 +79,6 @@ $('.tracerDelete').click(function(){
                             <th>标题</th>
                             <th>发布时间</th>
                             <th>查询次数</th>
-                            <th>状态</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -91,7 +90,6 @@ $('.tracerDelete').click(function(){
                         <td>{% import time  %}
                             {{ time.strftime('%Y-%m-%d', time.localtime(t.posted)) }}</td>
                         <td>{{ t.clicked }} </td>
-                        <td>{{ '启用' if t.status==1 else '停用' }}</td>
                         <td>
                             <a class="btn btn-xs btn-link" href="{{ reverse_url('TracerShower', t.id) }}?preview=1&next={{ request.path }}">预览</a>
                             <a class="btn btn-xs btn-link" href="{{ reverse_url('TracerManager', 'update', t.id) }}">编辑</a>

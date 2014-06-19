@@ -34,10 +34,8 @@ class Tracer(BaseModel):
     id = Column(String(255), primary_key=True)
     title = Column(String(255), default='')
     content = Column(Text(1024 * 4), default='')
-    status = Column(Integer, default=0)
     clicked = Column(Integer, default=0)
     posted = Column(Integer, default=0)
-    expired = Column(Integer, default=0)
     qr = Column(String(255), default='')
     url = Column(String(255), default='')
 

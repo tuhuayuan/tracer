@@ -1,0 +1,7 @@
+recursive-include tracer/static/ckeditor *
+recursive-exclude tracer/static/ckeditor/samples *
+include tracer/templates/*
+include tracer/static/*.ico
+include tracer/static/css/*
+include tracer/static/js/*
+include tracer/static/img/*

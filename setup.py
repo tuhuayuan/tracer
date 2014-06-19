@@ -1,22 +1,22 @@
 from setuptools import setup
 
 setup(
-    name='tracer',
-    version='1.0.0',
-    description="web app build on tornado",
-    keywords='tornado web',
-    author='tuhuayuan',
-    author_email='tuhuayuan@gmail.com',
-    url='',
-    license='MIT',
-    packages=['tracer'],
-    scripts=['tracer/scripts/tracer-admin.py'],
+    name="tracer",
+    version="1.0.0",
+    description="website powered by tornado",
+    keywords="tornado",
+    author="tuhuayuan",
+    author_email="tuhuayuan@gmail.com",
+    url="http://webrfs.im",
+    license="MIT",
+    packages=["tracer"],
+    include_package_data=True,
+    scripts=["tracer/scripts/tracer-admin.py"],
     install_requires=[
         "tornado",
         "sqlalchemy",
-        "MySQL-python"
+        "MySQL-python",
+        "qrcode",
+        "pillow",
     ],
-    entry_points="""
-        # -*- Entry points: -*-
-    """
 )
