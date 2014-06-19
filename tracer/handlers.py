@@ -6,9 +6,10 @@ import time
 import qrcode
 import os
 import math
+import json
 from StringIO import StringIO
 from tracer.models import Tracer
-from tornado.httpclient import AsyncHTTPClient
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from tornado.options import define, options
 from tornado.web import HTTPError, RequestHandler, authenticated
 from tornado.gen import coroutine
@@ -17,7 +18,7 @@ from tornado.escape import url_escape
 define("user", default="admin", help="Admin username")
 define("password", default="admin", help="Admin password")
 define("qr_token", default="secret_key", help="")
-define("qr_static_path", default="static/qr", help="")
+define("qr_static_path", default="qr", help="")
 define("tracer_url", default="", help="")
 
 
@@ -101,8 +102,8 @@ class TracerManager(BaseHandler):
         if not os.path.exists(path):
             os.makedirs(path)
         page = os.path.join(path, "%s.%s" % (tracer.id, "html"))
-        f = open(page, "w")
-        f.write(self.render_string("tracer_show.html", tracer=tracer))
+        with open(page, "w") as f:
+            f.write(self.render_string("tracer_show.html", tracer=tracer))
 
     @authenticated
     def get(self, method, key):
@@ -140,10 +141,28 @@ class TracerManager(BaseHandler):
 
     @coroutine
     def post_add_tracer(self):
+        """新建一个追踪对象
+        1、生成二维码 2、写入数据库 3、创建静态页面
+        """
         title = self.get_body_argument("tracer_title", default="")
         content = self.get_body_argument("tracer_content", default="")
         tracer_id = self.get_body_argument("tracer_id", default=Tracer.gen_id(12))
-        url = self.get_body_argument("tracer_url", default="")
+        tracer_url = self.get_body_argument("tracer_url", default="") + \
+            "/" + tracer_id + ".html"
+        qr_url = ""
+
+        client = AsyncHTTPClient()
+        req = HTTPRequest(
+            url="http://" + self.request.host + self.reverse_url("QRViewer") +
+                "?token=" + options.qr_token,
+            method="POST",
+            body="key=" + tracer_id + "&value=" + tracer_url,
+        )
+        resp = yield client.fetch(req)
+        if resp.code == 200:
+            ret = json.load(StringIO(resp.body))
+            print(ret)
+            qr_url = ret["url"]
 
         tracer = Tracer(
             id=tracer_id,
@@ -151,24 +170,14 @@ class TracerManager(BaseHandler):
             content=content,
             clicked=0,
             posted=int(time.time()),
-            qr=self.static_url(QRViewer.static_path(tracer_id)),
-            url=url + "/%s.html" % (tracer_id)
+            qr=qr_url,
+            url=tracer_url,
         )
+        self._gen_tracer_page(tracer)
         self.dbsession.merge(tracer)
         self.dbsession.commit()
 
-        # 生成Tracer静态页面
-        self._gen_tracer_page(tracer)
-
-        # QRView API创建静态二维码
-        http_client = AsyncHTTPClient()
-        yield http_client.fetch("http://" + self.request.host +
-                self.reverse_url("QRViewer") +
-                "?perisist=1&api=" + QRViewer.api_key() +
-                "&key=" + tracer.id +
-                "&value=" + tracer.url)
-
-        self.redirect(self.reverse_url("TracerShower", tracer.id) +
+        self.redirect(self.reverse_url("TracerShower", tracer_id) +
                 "?next=" + url_escape(self.reverse_url("TracerManager", "list", 0)))
 
     def get_list_tracer(self, page=0, per=10):
@@ -186,6 +195,8 @@ class TracerManager(BaseHandler):
                 page_count=page_count if page_count > 0 else 1)
 
     def get_update_tracer(self, tracer_id):
+        """返回编辑页面
+        """
         tracer = self.dbsession.query(Tracer).get(tracer_id)
         next_url = self.get_query_argument("next",
                 default=self.reverse_url("TracerManager", "list", 0))
@@ -195,6 +206,8 @@ class TracerManager(BaseHandler):
 
     @coroutine
     def post_update_tracer(self, tracer_id):
+        """更新已有对象
+        """
         tracer = self.dbsession.query(Tracer).get(tracer_id)
         if not tracer:
             raise HTTPError(404)
@@ -207,6 +220,8 @@ class TracerManager(BaseHandler):
 
     @coroutine
     def post_remove_tracer(self, tracer_id):
+        """删除对象
+        """
         tracer = self.dbsession.query(Tracer).get(tracer_id)
         if not tracer:
             raise HTTPError(404)
@@ -233,7 +248,7 @@ class TracerShower(BaseHandler):
                 tracer_url=tracer.url)
 
 
-class QRViewer(BaseHandler):
+class QRViewer(RequestHandler):
     """生成指定键值的二维码图片
     @api: 直接生成图片，返回json结果
     @perisist: 保存图片
@@ -271,19 +286,20 @@ class QRViewer(BaseHandler):
         """
         token = self.get_query_argument("token", default="")
         key = self.get_body_argument("key", default="")
-        value = self.body_argument("value", default="")
+        value = self.get_body_argument("value", default="")
         if token != options.qr_token:
             raise HTTPError(403)
         if not value or not re.match(r"^[\w\d_]+$", key):
             raise HTTPError(404)
         img = self._make_qrimage(value)
         path = os.path.join(self.settings["static_path"], options.qr_static_path)
+        name = key + "." + img.kind
         if not os.path.exists(path):
             os.makedirs(path)
-        path = os.path.join(path, key + "." + img.kind)
-        img.save(path)
+        img.save(os.path.join(path, name))
         self.write(dict(
-            url=self.request.protocol + "://" + self.request.host + self.static_url(path),
+            url=self.request.protocol + "://" + self.request.host +
+                    self.static_url(os.path.join(options.qr_static_path, name)),
             value=value,
             expired=0,
         ))

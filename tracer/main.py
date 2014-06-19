@@ -19,7 +19,7 @@ class Application(tornado.web.Application):
             url(r"/login", Login, name="Login"),
             url(r"/logout", Logout, name="Logout"),
             url(r"/admin/tracer/(\blist|get|add|remove|update\b)/(\w+)",
-                    TracerManager, name="TracerManager"),
+                TracerManager, name="TracerManager"),
             url(r"/admin/qr", QRViewer, name="QRViewer"),
             url(r"/tracer/([0-9a-zA-Z]{8,})", TracerShower, name="TracerShower"),
         ]
@@ -27,7 +27,7 @@ class Application(tornado.web.Application):
             debug=options.debug,
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
             static_path=os.path.join(os.path.dirname(__file__), "static"),
-            xsrf_cookies=True,
+            xsrf_cookies=False,
             cookie_secret="wxb0b2ff9c2e34505d",
             login_url="/login",
         )
